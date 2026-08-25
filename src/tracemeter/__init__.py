@@ -18,10 +18,20 @@ Quickstart:
 
 from tracemeter.tracer import Tracer, get_default_tracer, trace
 from tracemeter.pricing.engine import compute_cost
+from tracemeter.integrations.openai_wrap import instrument_openai
+from tracemeter.integrations.anthropic_wrap import instrument_anthropic
 
 __version__ = "0.1.0"
 
-__all__ = ["Tracer", "get_default_tracer", "trace", "span", "compute_cost"]
+__all__ = [
+    "Tracer",
+    "get_default_tracer",
+    "trace",
+    "span",
+    "compute_cost",
+    "instrument_openai",
+    "instrument_anthropic",
+]
 
 
 def span(name: str, **attributes):
