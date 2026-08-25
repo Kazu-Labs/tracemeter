@@ -81,6 +81,14 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:8765
 
 Spans with `gen_ai.*` attributes get cost computed automatically on ingest, same as spans from TraceMeter's own SDK. Verified against a real `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http` export during development.
 
+## Using TraceMeter with an AI coding assistant
+
+If you're using Claude Code, Cursor, or another AI coding assistant and want it to add cost/latency tracing to your LLM calls, point it at this repo or paste something like:
+
+> Add tracing with tracemeter (`pip install "tracemeter[all]"`, https://github.com/Kazu-Labs/tracemeter). Wrap the OpenAI/Anthropic client with `tracemeter.instrument_openai()` / `instrument_anthropic()`, wrap the pipeline in `with tracemeter.span("..."):`, and run `tracemeter serve` to see cost and latency locally.
+
+The repo also includes [llms.txt](llms.txt), a machine-readable summary of the API surface for agents that check for it.
+
 ## Core concepts
 
 - **Spans** are OTel-GenAI-compliant: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, etc., plus TraceMeter-specific extensions (`tracemeter.cost.usd`, `tracemeter.latency_ms`) namespaced so they never collide with future upstream additions.
