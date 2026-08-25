@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-24",
-  "note": "Prices are USD per 1,000,000 tokens. Community-maintained -- PRs welcome. Verify against the provider's live pricing page before relying on this for billing-critical decisions; TraceMeter shows cost as 'unknown' rather than silently guessing for any model not listed here.",
+  "as_of": "2026-08-25",
+  "note": "Prices are USD per 1,000,000 tokens. Community-maintained -- PRs welcome. Verify against the provider's live pricing page before relying on this for billing-critical decisions; TraceMeter shows cost as 'unknown' rather than silently guessing for any model not listed here. Verified against developers.openai.com/api/docs/pricing and platform.claude.com/docs/en/about-claude/pricing on 2026-08-25. Anthropic dot-release model IDs (e.g. claude-opus-4-6) are inferred from Anthropic's established ID pattern, not confirmed against an API reference -- correct via PR if wrong. Anthropic base input pricing only; prompt-caching, batch, fast-mode, and data-residency multipliers are not modeled.",
   "models": {
     "openai": {
       "gpt-4o": { "input": 2.50, "output": 10.00 },
@@ -10,21 +10,36 @@
       "gpt-4.1-mini": { "input": 0.40, "output": 1.60 },
       "gpt-4.1-nano": { "input": 0.10, "output": 0.40 },
       "o1": { "input": 15.00, "output": 60.00 },
-      "o1-mini": { "input": 1.10, "output": 4.40 },
-      "o3": { "input": 10.00, "output": 40.00 },
+      "o3": { "input": 2.00, "output": 8.00 },
       "o3-mini": { "input": 1.10, "output": 4.40 },
+      "gpt-5-mini": { "input": 0.25, "output": 2.00 },
+      "gpt-5-nano": { "input": 0.05, "output": 0.40 },
+      "gpt-5.4-mini": { "input": 0.75, "output": 4.50 },
+      "gpt-5.4-nano": { "input": 0.20, "output": 1.25 },
+      "gpt-5.6-sol": { "input": 4.00, "output": 20.00 },
+      "gpt-5.6-terra": { "input": 2.00, "output": 12.00 },
+      "gpt-5.6-luna": { "input": 0.20, "output": 1.20 },
       "text-embedding-3-small": { "input": 0.02, "output": 0.0 },
       "text-embedding-3-large": { "input": 0.13, "output": 0.0 }
     },
     "anthropic": {
+      "claude-fable-5": { "input": 10.00, "output": 50.00 },
+      "claude-mythos-5": { "input": 10.00, "output": 50.00 },
+      "claude-opus-5": { "input": 5.00, "output": 25.00 },
+      "claude-opus-4-8": { "input": 5.00, "output": 25.00 },
+      "claude-opus-4-7": { "input": 5.00, "output": 25.00 },
+      "claude-opus-4-6": { "input": 5.00, "output": 25.00 },
+      "claude-opus-4-5": { "input": 5.00, "output": 25.00 },
+      "claude-opus-4-1": { "input": 15.00, "output": 75.00 },
       "claude-opus-4": { "input": 15.00, "output": 75.00 },
+      "claude-sonnet-5": { "input": 2.00, "output": 10.00 },
+      "claude-sonnet-4-6": { "input": 3.00, "output": 15.00 },
+      "claude-sonnet-4-5": { "input": 3.00, "output": 15.00 },
       "claude-sonnet-4": { "input": 3.00, "output": 15.00 },
+      "claude-haiku-4-5": { "input": 1.00, "output": 5.00 },
       "claude-3-5-sonnet-20241022": { "input": 3.00, "output": 15.00 },
       "claude-3-5-haiku-20241022": { "input": 0.80, "output": 4.00 },
-      "claude-3-opus-20240229": { "input": 15.00, "output": 75.00 },
-      "claude-haiku-4-5": { "input": 1.00, "output": 5.00 },
-      "claude-sonnet-5": { "input": 3.00, "output": 15.00 },
-      "claude-opus-5": { "input": 15.00, "output": 75.00 }
+      "claude-3-opus-20240229": { "input": 15.00, "output": 75.00 }
     }
   }
 }

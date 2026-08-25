@@ -30,6 +30,15 @@ def test_unknown_model_returns_none():
 def test_reasoning_tokens_billed_at_output_rate():
     engine = PricingEngine()
     cost = engine.compute_cost(
-        "o1-mini", input_tokens=0, output_tokens=0, reasoning_tokens=1_000_000
+        "o3-mini", input_tokens=0, output_tokens=0, reasoning_tokens=1_000_000
     )
     assert cost == 4.40
+
+
+def test_unlisted_deprecated_model_returns_none():
+    # o1-mini was removed from the table because it's no longer listed on
+    # OpenAI's pricing page and its price couldn't be reconfirmed -- this
+    # should fail open (unknown), not silently reuse a stale number.
+    engine = PricingEngine()
+    cost = engine.compute_cost("o1-mini", input_tokens=1000, output_tokens=1000)
+    assert cost is None

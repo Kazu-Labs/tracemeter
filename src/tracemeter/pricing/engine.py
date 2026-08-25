@@ -15,11 +15,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 _DEFAULT_PRICES_PATH = Path(__file__).parent / "prices.json"
+
+# Matches a dated-snapshot suffix appended to a base model name, e.g. the
+# "-2024-08-06" in "gpt-4o-2024-08-06" or the "-20241022" in
+# "claude-3-5-sonnet-20241022". Deliberately does NOT match arbitrary
+# suffixes like "-mini" -- that distinction is what stops "o1-mini" from
+# incorrectly falling back to "o1"'s price (a real bug caught by a test).
+_DATED_SUFFIX_RE = re.compile(r"^-(\d{4}-\d{2}-\d{2}|\d{8})$")
 
 
 @lru_cache(maxsize=1)
@@ -39,13 +47,18 @@ def _find_model_rate(system: Optional[str], model: str, table: dict) -> Optional
     for models in systems:
         if model in models:
             return models[model]
-    # Fallback: versioned model names (e.g. "gpt-4o-2024-08-06") should
-    # still match their base entry ("gpt-4o") via longest-prefix match.
+    # Fallback: dated-snapshot model names (e.g. "gpt-4o-2024-08-06") should
+    # still match their base entry ("gpt-4o"). Only strip a suffix that
+    # actually looks like a date -- a plain prefix match would also (and
+    # incorrectly) match unrelated sibling models like "o1-mini" against "o1".
     best: Optional[dict] = None
     best_len = -1
     for models in systems:
         for key, rate in models.items():
             if model.startswith(key) and len(key) > best_len:
+                suffix = model[len(key):]
+                if suffix and not _DATED_SUFFIX_RE.match(suffix):
+                    continue
                 best = rate
                 best_len = len(key)
     return best
