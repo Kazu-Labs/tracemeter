@@ -22,6 +22,7 @@ except ImportError as exc:  # pragma: no cover
         "The dashboard server requires the 'server' extra: pip install 'tracemeter[server]'"
     ) from exc
 
+from tracemeter.compare import compare_traces
 from tracemeter.server.otlp import (
     MalformedOtlpPayload,
     parse_export_request_json,
@@ -64,6 +65,14 @@ def create_app(store: Optional[SqliteStore] = None) -> "FastAPI":
         if not spans:
             return JSONResponse({"error": "trace not found"}, status_code=404)
         return {"trace_id": trace_id, "spans": spans}
+
+    @app.get("/api/compare")
+    def compare(trace_a: str, trace_b: str):
+        spans_a = app.state.store.get_trace_spans(trace_a)
+        spans_b = app.state.store.get_trace_spans(trace_b)
+        if not spans_a or not spans_b:
+            return JSONResponse({"error": "one or both traces not found"}, status_code=404)
+        return compare_traces(app.state.store, trace_a, trace_b)
 
     @app.get("/api/cost_summary")
     def cost_summary(

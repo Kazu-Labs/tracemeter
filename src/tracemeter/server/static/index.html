@@ -96,6 +96,13 @@
   .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   a.export-link { color: var(--accent); text-decoration: none; font-size: 13px; }
   .attrs { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-dim); white-space: pre-wrap; padding: 10px; background: var(--panel-2); border-radius: 6px; margin-top: 4px; max-height: 200px; overflow-y: auto; }
+  .trace-row .pick { display: flex; align-items: flex-start; gap: 8px; }
+  .trace-row .pick input[type=checkbox] { margin-top: 3px; }
+  #compare-bar { display: none; align-items: center; justify-content: space-between; background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
+  #compare-bar.active { display: flex; }
+  .delta-pos { color: var(--err); }
+  .delta-neg { color: var(--ok); }
+  .delta-zero { color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -114,7 +121,14 @@
       <input id="f-model" placeholder="Filter by model..." />
       <button id="f-refresh">Refresh</button>
     </div>
-    <div class="section-title">Traces</div>
+    <div id="compare-bar">
+      <span id="compare-count">0 selected</span>
+      <div>
+        <button id="compare-go" disabled>Compare</button>
+        <button id="compare-clear">Clear</button>
+      </div>
+    </div>
+    <div class="section-title">Traces <span style="color:var(--text-dim); font-weight:normal; text-transform:none;">(check two to compare)</span></div>
     <div id="trace-list"><div class="empty">Loading...</div></div>
   </div>
   <div class="main">
@@ -127,6 +141,8 @@
 <script>
 const $ = (sel) => document.querySelector(sel);
 let selectedTraceId = null;
+let compareSelection = new Set();
+let lastTraces = [];
 
 function fmtMs(ms) {
   if (ms == null) return "-";
@@ -151,6 +167,7 @@ async function loadTraces() {
   if (model) params.set("model", model);
   const res = await fetch("/api/traces?" + params.toString());
   const traces = await res.json();
+  lastTraces = traces;
   const list = $("#trace-list");
   if (!traces.length) {
     list.innerHTML = '<div class="empty">No traces yet.</div>';
@@ -160,18 +177,113 @@ async function loadTraces() {
   for (const t of traces) {
     const row = document.createElement("div");
     row.className = "trace-row" + (t.trace_id === selectedTraceId ? " selected" : "");
+    const checked = compareSelection.has(t.trace_id) ? "checked" : "";
     row.innerHTML = `
-      <div class="name">${escapeHtml(t.name)}</div>
-      <div class="meta">
-        <span>${fmtTime(t.start_time)}</span>
-        <span>${fmtMs((t.end_time - t.start_time) * 1000)}</span>
-        <span>${t.span_count} spans</span>
-        <span class="cost">${fmtCost(t.total_cost_usd)}</span>
-        ${t.error_count > 0 ? `<span class="err-badge">${t.error_count} error(s)</span>` : ""}
+      <div class="pick">
+        <input type="checkbox" data-trace-id="${t.trace_id}" ${checked} />
+        <div style="flex:1">
+          <div class="name">${escapeHtml(t.name)}</div>
+          <div class="meta">
+            <span>${fmtTime(t.start_time)}</span>
+            <span>${fmtMs((t.end_time - t.start_time) * 1000)}</span>
+            <span>${t.span_count} spans</span>
+            <span class="cost">${fmtCost(t.total_cost_usd)}</span>
+            ${t.error_count > 0 ? `<span class="err-badge">${t.error_count} error(s)</span>` : ""}
+          </div>
+        </div>
       </div>`;
-    row.onclick = () => selectTrace(t.trace_id);
+    row.querySelector(".name").onclick = () => selectTrace(t.trace_id);
+    row.querySelector("input[type=checkbox]").addEventListener("click", (e) => e.stopPropagation());
+    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
+      toggleCompareSelection(t.trace_id, e.target.checked);
+    });
     list.appendChild(row);
   }
+}
+
+function toggleCompareSelection(traceId, isChecked) {
+  if (isChecked) {
+    if (compareSelection.size >= 2) {
+      // Replace the oldest selection so it's always "the last two picked".
+      const [first] = compareSelection;
+      compareSelection.delete(first);
+    }
+    compareSelection.add(traceId);
+  } else {
+    compareSelection.delete(traceId);
+  }
+  const bar = $("#compare-bar");
+  const count = compareSelection.size;
+  $("#compare-count").textContent = `${count} selected`;
+  $("#compare-go").disabled = count !== 2;
+  bar.classList.toggle("active", count > 0);
+  loadTraces();
+}
+
+$("#compare-clear").onclick = () => {
+  compareSelection.clear();
+  loadTraces();
+  $("#compare-bar").classList.remove("active");
+};
+
+$("#compare-go").onclick = () => {
+  const [a, b] = compareSelection;
+  loadComparison(a, b);
+};
+
+async function loadComparison(traceA, traceB) {
+  const res = await fetch(`/api/compare?trace_a=${traceA}&trace_b=${traceB}`);
+  if (!res.ok) return;
+  const data = await res.json();
+  renderComparison(data);
+}
+
+function deltaClass(delta) {
+  if (Math.abs(delta) < 1e-9) return "delta-zero";
+  return delta > 0 ? "delta-pos" : "delta-neg";
+}
+function fmtDelta(delta, fmt) {
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${fmt(delta)}`;
+}
+
+function renderComparison(data) {
+  const nameFor = (id) => (lastTraces.find((t) => t.trace_id === id) || {}).name || id.slice(0, 8);
+  const rows = data.steps
+    .map(
+      (s) => `
+    <tr>
+      <td>${escapeHtml(s.name)}${s.only_in ? ` <span style="color:var(--text-dim)">(only in ${s.only_in})</span>` : ""}</td>
+      <td>${fmtCost(s.a_cost_usd)}</td>
+      <td>${fmtCost(s.b_cost_usd)}</td>
+      <td class="${deltaClass(s.cost_delta_usd)}">${fmtDelta(s.cost_delta_usd, fmtCost)}</td>
+      <td>${fmtMs(s.a_latency_ms)}</td>
+      <td>${fmtMs(s.b_latency_ms)}</td>
+      <td class="${deltaClass(s.latency_delta_ms)}">${fmtDelta(s.latency_delta_ms, fmtMs)}</td>
+    </tr>`
+    )
+    .join("");
+
+  $("#detail").innerHTML = `
+    <div class="top-row">
+      <strong>Comparing:</strong>&nbsp;${escapeHtml(nameFor(data.a.trace_id))} (A) vs ${escapeHtml(nameFor(data.b.trace_id))} (B)
+    </div>
+    <table style="margin-bottom:20px">
+      <thead><tr><th>Step</th><th>A cost</th><th>B cost</th><th>Δ cost</th><th>A latency</th><th>B latency</th><th>Δ latency</th></tr></thead>
+      <tbody>
+        ${rows}
+        <tr style="font-weight:600">
+          <td>Total</td>
+          <td>${fmtCost(data.a.cost_usd)}</td>
+          <td>${fmtCost(data.b.cost_usd)}</td>
+          <td class="${deltaClass(data.delta.cost_usd)}">${fmtDelta(data.delta.cost_usd, fmtCost)}</td>
+          <td>${fmtMs(data.a.latency_ms)}</td>
+          <td>${fmtMs(data.b.latency_ms)}</td>
+          <td class="${deltaClass(data.delta.latency_ms)}">${fmtDelta(data.delta.latency_ms, fmtMs)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
 }
 
 function escapeHtml(s) {
