@@ -119,6 +119,10 @@
     <div class="filters">
       <input id="f-name" placeholder="Filter by trace name..." />
       <input id="f-model" placeholder="Filter by model..." />
+      <div style="display:flex; gap:8px;">
+        <input id="f-start" type="datetime-local" style="flex:1" title="Start after" />
+        <input id="f-end" type="datetime-local" style="flex:1" title="Start before" />
+      </div>
       <button id="f-refresh">Refresh</button>
     </div>
     <div id="compare-bar">
@@ -133,7 +137,16 @@
   </div>
   <div class="main">
     <div id="detail"><div class="empty">Select a trace to see its waterfall view, or run <code>tracemeter</code> in your app to generate one.</div></div>
-    <div class="section-title">Cost breakdown</div>
+    <div class="top-row">
+      <div class="section-title" style="margin:0">Cost breakdown</div>
+      <div>
+        <select id="group-by">
+          <option value="model">By model</option>
+          <option value="day">By day</option>
+          <option value="name">By step</option>
+        </select>
+      </div>
+    </div>
     <div id="cost-summary"></div>
   </div>
 </div>
@@ -159,12 +172,24 @@ function fmtTime(unixSeconds) {
   return new Date(unixSeconds * 1000).toLocaleString();
 }
 
+function dateFilterParams() {
+  const out = {};
+  const startVal = $("#f-start").value;
+  const endVal = $("#f-end").value;
+  if (startVal) out.start_after = new Date(startVal).getTime() / 1000;
+  if (endVal) out.start_before = new Date(endVal).getTime() / 1000;
+  return out;
+}
+
 async function loadTraces() {
   const params = new URLSearchParams();
   const name = $("#f-name").value.trim();
   const model = $("#f-model").value.trim();
   if (name) params.set("name", name);
   if (model) params.set("model", model);
+  const dates = dateFilterParams();
+  if (dates.start_after) params.set("start_after", dates.start_after);
+  if (dates.start_before) params.set("start_before", dates.start_before);
   const res = await fetch("/api/traces?" + params.toString());
   const traces = await res.json();
   lastTraces = traces;
@@ -344,17 +369,23 @@ function renderWaterfall(spans) {
 }
 
 async function loadCostSummary() {
-  const res = await fetch("/api/cost_summary?group_by=model");
+  const groupBy = $("#group-by").value;
+  const params = new URLSearchParams({ group_by: groupBy });
+  const dates = dateFilterParams();
+  if (dates.start_after) params.set("start_after", dates.start_after);
+  if (dates.start_before) params.set("start_before", dates.start_before);
+  const res = await fetch("/api/cost_summary?" + params.toString());
   const rows = await res.json();
   const el = $("#cost-summary");
   if (!rows.length) {
     el.innerHTML = '<div class="empty">No cost data yet.</div>';
     return;
   }
+  const colLabel = { model: "Model", day: "Day", name: "Step" }[groupBy];
   const maxCost = Math.max(...rows.map((r) => r.cost_usd), 0.0001);
   el.innerHTML = `
     <table>
-      <thead><tr><th>Model</th><th>Calls</th><th>Avg latency</th><th style="width:40%">Cost</th></tr></thead>
+      <thead><tr><th>${colLabel}</th><th>Calls</th><th>Avg latency</th><th style="width:40%">Cost</th></tr></thead>
       <tbody>
         ${rows
           .map(
@@ -380,6 +411,7 @@ async function loadCostSummary() {
 $("#f-refresh").onclick = () => { loadTraces(); loadCostSummary(); };
 $("#f-name").addEventListener("keydown", (e) => { if (e.key === "Enter") loadTraces(); });
 $("#f-model").addEventListener("keydown", (e) => { if (e.key === "Enter") loadTraces(); });
+$("#group-by").addEventListener("change", loadCostSummary);
 
 loadTraces();
 loadCostSummary();
