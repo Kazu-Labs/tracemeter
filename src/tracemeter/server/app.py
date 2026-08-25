@@ -15,13 +15,18 @@ from pathlib import Path
 from typing import Optional
 
 try:
-    from fastapi import FastAPI, Query
+    from fastapi import FastAPI, Query, Request
     from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "The dashboard server requires the 'server' extra: pip install 'tracemeter[server]'"
     ) from exc
 
+from tracemeter.server.otlp import (
+    MalformedOtlpPayload,
+    parse_export_request_json,
+    parse_export_request_protobuf,
+)
 from tracemeter.storage.sqlite_store import SqliteStore
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -101,5 +106,32 @@ def create_app(store: Optional[SqliteStore] = None) -> "FastAPI":
             row["attributes"] = json.dumps(row["attributes"])
             writer.writerow(row)
         return PlainTextResponse(buf.getvalue(), media_type="text/csv")
+
+    @app.post("/v1/traces")
+    async def ingest_traces(request: Request):
+        """OTLP/HTTP trace ingest. Point any OTel SDK's OTLP exporter at
+        OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:<port> to use TraceMeter
+        as a local backend without its own SDK. Both protobuf (the
+        default wire format of mainstream exporters) and JSON are
+        supported, dispatched on Content-Type."""
+        content_type = request.headers.get("content-type", "")
+        raw_body = await request.body()
+        try:
+            if "application/json" in content_type:
+                import json
+
+                spans = parse_export_request_json(json.loads(raw_body))
+            else:
+                spans = parse_export_request_protobuf(raw_body)
+        except MalformedOtlpPayload as exc:
+            return JSONResponse({"error": f"malformed OTLP payload: {exc}"}, status_code=400)
+        except RuntimeError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=501)
+        except Exception as exc:
+            return JSONResponse({"error": f"malformed OTLP payload: {exc}"}, status_code=400)
+
+        for span in spans:
+            app.state.store.write_span(span)
+        return JSONResponse({"spans_written": len(spans)})
 
     return app
