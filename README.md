@@ -1,6 +1,7 @@
 # TraceMeter
 
 [![CI](https://github.com/Kazu-Labs/tracemeter/actions/workflows/ci.yml/badge.svg)](https://github.com/Kazu-Labs/tracemeter/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/tracemeter.svg)](https://pypi.org/project/tracemeter/)
 
 Local-first, zero-infra cost & latency dashboard for LLM pipelines — built on [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/), not competing with them.
 
@@ -39,17 +40,15 @@ Early / pre-alpha, but functional end-to-end. Working today:
 - Local dashboard (`tracemeter serve`): waterfall view, cost breakdown by model, run comparison, filtering, CSV/JSON export
 - OTLP/HTTP ingest (`POST /v1/traces`, both protobuf and JSON) so any OTel-instrumented app can use TraceMeter as a backend without its own SDK
 
-Not yet published to PyPI, and not yet used in production anywhere — see [Issues](https://github.com/Kazu-Labs/tracemeter/issues) and `PRD.md` for the roadmap.
+Published on PyPI; not yet used in production anywhere — see [Issues](https://github.com/Kazu-Labs/tracemeter/issues) and `PRD.md` for the roadmap.
 
 ## Install
 
 ```
-git clone https://github.com/Kazu-Labs/tracemeter
-cd tracemeter
-pip install -e ".[all]"
+pip install "tracemeter[all]"
 ```
 
-`pip install tracemeter` once it's published to PyPI. Extras: `[openai]`, `[anthropic]`, `[server]` (dashboard), `[otlp]` (OTLP ingest), `[all]` (everything).
+Extras: `[openai]`, `[anthropic]`, `[server]` (dashboard), `[otlp]` (OTLP ingest), `[all]` (everything). For local development: `git clone` + `pip install -e ".[all]"`.
 
 ## Quickstart
 
