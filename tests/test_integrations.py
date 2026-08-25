@@ -4,6 +4,7 @@ so the test suite doesn't need `openai`/`anthropic` installed."""
 from types import SimpleNamespace
 
 from tracemeter.integrations.anthropic_wrap import instrument_anthropic
+from tracemeter.integrations.litellm_wrap import instrument_litellm
 from tracemeter.integrations.openai_wrap import instrument_openai
 from tracemeter.storage.sqlite_store import SqliteStore
 from tracemeter.tracer import Tracer
@@ -108,6 +109,29 @@ def test_instrument_openai_records_error(tmp_path):
     spans = store.get_trace_spans(traces[0]["trace_id"])
     assert spans[0]["status"] == "error"
     assert "rate limited" in spans[0]["error_message"]
+
+
+def test_instrument_litellm_records_span_and_cost(tmp_path):
+    tracer, store = make_tracer(tmp_path)
+
+    fake_litellm = SimpleNamespace(
+        completion=lambda **kwargs: SimpleNamespace(
+            model=kwargs.get("model"),
+            usage={"prompt_tokens": 300, "completion_tokens": 120},
+        )
+    )
+    instrument_litellm(fake_litellm, tracer=tracer)
+
+    fake_litellm.completion(model="gpt-4o-mini", messages=[])
+
+    traces = store.list_traces()
+    spans = store.get_trace_spans(traces[0]["trace_id"])
+    attrs = spans[0]["attributes"]
+    assert attrs["gen_ai.system"] == "litellm"
+    assert attrs["gen_ai.usage.input_tokens"] == 300
+    assert attrs["gen_ai.usage.output_tokens"] == 120
+    expected_cost = (300 / 1_000_000) * 0.15 + (120 / 1_000_000) * 0.60
+    assert attrs["tracemeter.cost.usd"] == round(expected_cost, 8)
 
 
 def test_instrument_openai_streaming(tmp_path):

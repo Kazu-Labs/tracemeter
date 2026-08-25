@@ -20,6 +20,7 @@ from tracemeter.tracer import Tracer, get_default_tracer, trace
 from tracemeter.pricing.engine import compute_cost
 from tracemeter.integrations.openai_wrap import instrument_openai
 from tracemeter.integrations.anthropic_wrap import instrument_anthropic
+from tracemeter.integrations.litellm_wrap import instrument_litellm
 
 __version__ = "0.1.0"
 
@@ -31,6 +32,7 @@ __all__ = [
     "compute_cost",
     "instrument_openai",
     "instrument_anthropic",
+    "instrument_litellm",
 ]
 
 
