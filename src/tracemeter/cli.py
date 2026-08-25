@@ -35,6 +35,28 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    try:
+        from tracemeter.mcp_server import create_mcp_server
+    except ImportError:
+        print(
+            "The MCP server requires extra dependencies (Python 3.10+).\n"
+            "Install them with: pip install 'tracemeter[mcp]'",
+            file=sys.stderr,
+        )
+        return 1
+
+    from tracemeter.storage.sqlite_store import SqliteStore
+
+    store = SqliteStore(args.db) if args.db else SqliteStore.default()
+    # stdio transport uses stdout for the JSON-RPC protocol itself -- any
+    # stray print() to stdout here would corrupt the stream, so status
+    # goes to stderr only.
+    print(f"TraceMeter MCP server: reading {store.db_path}", file=sys.stderr)
+    create_mcp_server(store=store).run(transport="stdio")
+    return 0
+
+
 def _cmd_where(args: argparse.Namespace) -> int:
     print(default_db_path())
     return 0
@@ -54,6 +76,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     where = subparsers.add_parser("where", help="Print the default trace DB path")
     where.set_defaults(func=_cmd_where)
+
+    mcp = subparsers.add_parser(
+        "mcp", help="Launch the MCP server (stdio) for agent access to trace/cost data"
+    )
+    mcp.add_argument(
+        "--db", default=None, help="Path to the SQLite trace DB (default: ~/.tracemeter/traces.db)"
+    )
+    mcp.set_defaults(func=_cmd_mcp)
 
     return parser
 

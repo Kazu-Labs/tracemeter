@@ -39,6 +39,7 @@ Early / pre-alpha, but functional end-to-end. Working today:
 - Pricing engine with a versioned, PR-friendly table; unknown models fail open
 - Local dashboard (`tracemeter serve`): waterfall view, cost breakdown by model, run comparison, filtering, CSV/JSON export
 - OTLP/HTTP ingest (`POST /v1/traces`, both protobuf and JSON) so any OTel-instrumented app can use TraceMeter as a backend without its own SDK
+- MCP server (`tracemeter mcp`, Python 3.10+) exposing trace/cost data as tools for MCP-aware agents like Claude Code
 
 Published on PyPI; not yet used in production anywhere — see [Issues](https://github.com/Kazu-Labs/tracemeter/issues) and `PRD.md` for the roadmap.
 
@@ -88,6 +89,25 @@ If you're using Claude Code, Cursor, or another AI coding assistant and want it 
 > Add tracing with tracemeter (`pip install "tracemeter[all]"`, https://github.com/Kazu-Labs/tracemeter). Wrap the OpenAI/Anthropic client with `tracemeter.instrument_openai()` / `instrument_anthropic()`, wrap the pipeline in `with tracemeter.span("..."):`, and run `tracemeter serve` to see cost and latency locally.
 
 The repo also includes [llms.txt](llms.txt), a machine-readable summary of the API surface for agents that check for it.
+
+### MCP server
+
+`pip install "tracemeter[mcp]"` (Python 3.10+) also gets you an MCP server, so an MCP-aware agent can query your trace/cost data directly as tools instead of only reading about the package. It exposes `list_traces`, `get_trace`, `cost_summary`, `compare_two_traces`, and `lookup_model_price`, all reading the same local SQLite store as `tracemeter serve`.
+
+Add it to any MCP client's config (Claude Desktop's `claude_desktop_config.json`, Claude Code's `.mcp.json`, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "tracemeter": {
+      "command": "tracemeter",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Or run it directly for testing: `tracemeter mcp` (talks stdio JSON-RPC; not meant to be run interactively). Add `--db /path/to/traces.db` to point it at a specific trace database.
 
 ## Core concepts
 
