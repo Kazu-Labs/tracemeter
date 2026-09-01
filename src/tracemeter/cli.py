@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from tracemeter.storage.sqlite_store import default_db_path
 
@@ -26,7 +27,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     from tracemeter.server.app import create_app
     from tracemeter.storage.sqlite_store import SqliteStore
 
-    store = SqliteStore(args.db) if args.db else SqliteStore.default()
+    store = SqliteStore(Path(args.db)) if args.db else SqliteStore.default()
     app = create_app(store=store)
 
     print(f"TraceMeter dashboard: reading {store.db_path}")
@@ -48,7 +49,7 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 
     from tracemeter.storage.sqlite_store import SqliteStore
 
-    store = SqliteStore(args.db) if args.db else SqliteStore.default()
+    store = SqliteStore(Path(args.db)) if args.db else SqliteStore.default()
     # stdio transport uses stdout for the JSON-RPC protocol itself -- any
     # stray print() to stdout here would corrupt the stream, so status
     # goes to stderr only.
@@ -58,8 +59,6 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 
 
 def _cmd_demo(args: argparse.Namespace) -> int:
-    from pathlib import Path
-
     from tracemeter.demo import populate_demo_data
     from tracemeter.storage.sqlite_store import SqliteStore
 

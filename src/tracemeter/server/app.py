@@ -74,6 +74,17 @@ def create_app(store: Optional[SqliteStore] = None) -> "FastAPI":
             return JSONResponse({"error": "one or both traces not found"}, status_code=404)
         return compare_traces(app.state.store, trace_a, trace_b)
 
+    @app.get("/api/stats")
+    def stats(
+        name: Optional[str] = None,
+        model: Optional[str] = None,
+        start_after: Optional[float] = None,
+        start_before: Optional[float] = None,
+    ):
+        return app.state.store.stats(
+            name_contains=name, model=model, start_after=start_after, start_before=start_before
+        )
+
     @app.get("/api/cost_summary")
     def cost_summary(
         group_by: str = Query(default="model", pattern="^(model|day|name)$"),

@@ -50,7 +50,7 @@ Early / pre-alpha, but functional end-to-end. Working today:
 - LangChain callback handler (`TraceMeterCallbackHandler`), works across any LangChain chat model integration (OpenAI, Anthropic, Bedrock, Vertex AI, etc.)
 - LlamaIndex callback handler (Python 3.10+), same idea via LlamaIndex's `CallbackManager`
 - Pricing engine with a versioned, PR-friendly table; unknown models fail open
-- Local dashboard (`tracemeter serve`): waterfall view, cost breakdown by model, run comparison, filtering, CSV/JSON export
+- Local dashboard (`tracemeter serve`): stat-tile overview (total cost, traces, errors, avg latency), waterfall view with expandable per-span attributes, cost breakdown by model, run comparison, filtering, CSV/JSON export
 - OTLP/HTTP ingest (`POST /v1/traces`, both protobuf and JSON) so any OTel-instrumented app can use TraceMeter as a backend without its own SDK
 - MCP server (`tracemeter mcp`, Python 3.10+) exposing trace/cost data as tools for MCP-aware agents like Claude Code
 

@@ -96,6 +96,17 @@
   .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   a.export-link { color: var(--accent); text-decoration: none; font-size: 13px; }
   .attrs { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-dim); white-space: pre-wrap; padding: 10px; background: var(--panel-2); border-radius: 6px; margin-top: 4px; max-height: 200px; overflow-y: auto; }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-tile { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .stat-tile .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 6px; }
+  .stat-tile .value { font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .stat-tile .value.err { color: var(--err); }
+  .stat-tile .sub { font-size: 11px; color: var(--warn); margin-top: 3px; }
+  .unpriced-badge { color: var(--warn); font-size: 11px; font-weight: 500; }
+  .wf-row { cursor: pointer; }
+  .wf-row:hover { background: var(--panel-2); }
+  .wf-attrs { display: none; padding: 0 10px 8px; }
+  .wf-attrs.open { display: block; }
   .trace-row .pick { display: flex; align-items: flex-start; gap: 8px; }
   .trace-row .pick input[type=checkbox] { margin-top: 3px; }
   #compare-bar { display: none; align-items: center; justify-content: space-between; background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
@@ -136,6 +147,7 @@
     <div id="trace-list"><div class="empty">Loading...</div></div>
   </div>
   <div class="main">
+    <div id="stat-row" class="stat-row"></div>
     <div id="detail"><div class="empty">Select a trace to see its waterfall view, or run <code>tracemeter</code> in your app to generate one.</div></div>
     <div class="top-row">
       <div class="section-title" style="margin:0">Cost breakdown</div>
@@ -171,6 +183,10 @@ function fmtTime(unixSeconds) {
   if (unixSeconds == null) return "-";
   return new Date(unixSeconds * 1000).toLocaleString();
 }
+function fmtCount(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(n);
+}
 
 function dateFilterParams() {
   const out = {};
@@ -181,7 +197,7 @@ function dateFilterParams() {
   return out;
 }
 
-async function loadTraces() {
+function activeFilterParams() {
   const params = new URLSearchParams();
   const name = $("#f-name").value.trim();
   const model = $("#f-model").value.trim();
@@ -190,6 +206,43 @@ async function loadTraces() {
   const dates = dateFilterParams();
   if (dates.start_after) params.set("start_after", dates.start_after);
   if (dates.start_before) params.set("start_before", dates.start_before);
+  return params;
+}
+
+async function loadStats() {
+  const res = await fetch("/api/stats?" + activeFilterParams().toString());
+  const s = await res.json();
+  const row = $("#stat-row");
+  if (!s.trace_count) {
+    row.innerHTML = "";
+    return;
+  }
+  const costSub = s.unknown_cost_span_count > 0
+    ? `<div class="sub">+ ${s.unknown_cost_span_count} unpriced call${s.unknown_cost_span_count === 1 ? "" : "s"}</div>`
+    : "";
+  row.innerHTML = `
+    <div class="stat-tile">
+      <div class="label">Total cost${s.unknown_cost_span_count > 0 ? " (known)" : ""}</div>
+      <div class="value">${fmtCost(s.total_cost_usd)}</div>
+      ${costSub}
+    </div>
+    <div class="stat-tile">
+      <div class="label">Traces</div>
+      <div class="value">${fmtCount(s.trace_count)}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Errors</div>
+      <div class="value ${s.error_trace_count > 0 ? "err" : ""}">${fmtCount(s.error_trace_count)}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Avg latency</div>
+      <div class="value">${fmtMs(s.avg_trace_latency_ms)}</div>
+    </div>
+  `;
+}
+
+async function loadTraces() {
+  const params = activeFilterParams();
   const res = await fetch("/api/traces?" + params.toString());
   const traces = await res.json();
   lastTraces = traces;
@@ -213,6 +266,7 @@ async function loadTraces() {
             <span>${fmtMs((t.end_time - t.start_time) * 1000)}</span>
             <span>${t.span_count} spans</span>
             <span class="cost">${fmtCost(t.total_cost_usd)}</span>
+            ${t.has_unknown_cost ? `<span class="unpriced-badge">+ unpriced</span>` : ""}
             ${t.error_count > 0 ? `<span class="err-badge">${t.error_count} error(s)</span>` : ""}
           </div>
         </div>
@@ -336,7 +390,7 @@ function renderWaterfall(spans) {
   const totalMs = Math.max((maxEnd - minStart) * 1000, 1);
 
   const rows = spans
-    .map((s) => {
+    .map((s, i) => {
       const offsetMs = (s.start_time - minStart) * 1000;
       const durMs = ((s.end_time ?? s.start_time) - s.start_time) * 1000;
       const leftPct = (offsetMs / totalMs) * 100;
@@ -344,36 +398,55 @@ function renderWaterfall(spans) {
       const depth = s.parent_span_id ? 1 : 0;
       const isErr = s.status === "error";
       const cost = s.attributes["tracemeter.cost.usd"];
+      const costUnknown = s.attributes["tracemeter.cost.unknown"];
       const model = s.attributes["gen_ai.request.model"] || s.attributes["gen_ai.response.model"];
+      let costLabel = "";
+      if (cost != null) costLabel = " &middot; " + fmtCost(cost);
+      else if (costUnknown) costLabel = ' &middot; <span class="unpriced-badge">unpriced</span>';
+      const attrsJson = JSON.stringify(
+        { name: s.name, status: s.status, error_message: s.error_message, ...s.attributes },
+        null,
+        2
+      );
       return `
-        <div class="wf-row ${isErr ? "error" : ""}">
+        <div class="wf-row ${isErr ? "error" : ""}" data-row-index="${i}">
           <div class="wf-name" style="padding-left:${depth * 16}px" title="${escapeHtml(s.name)}">
             ${escapeHtml(s.name)}${model ? ` <span style="color:var(--text-dim)">(${escapeHtml(model)})</span>` : ""}
           </div>
           <div class="wf-bar-track">
             <div class="wf-bar ${isErr ? "error" : ""}" style="left:${leftPct}%;width:${widthPct}%"></div>
           </div>
-          <div class="wf-meta">${fmtMs(durMs)}${cost != null ? " &middot; " + fmtCost(cost) : ""}</div>
-        </div>`;
+          <div class="wf-meta">${fmtMs(durMs)}${costLabel}</div>
+        </div>
+        <div class="wf-attrs" data-attrs-index="${i}"><pre class="attrs" style="margin:0">${escapeHtml(attrsJson)}</pre></div>`;
     })
     .join("");
 
   const totalCost = spans.reduce((acc, s) => acc + (s.attributes["tracemeter.cost.usd"] || 0), 0);
+  const unpricedCount = spans.filter((s) => s.attributes["tracemeter.cost.unknown"]).length;
 
   detail.innerHTML = `
     <div class="top-row">
-      <div><strong>${spans.length}</strong> spans &middot; total ${fmtMs(totalMs)} &middot; ${fmtCost(totalCost)}</div>
+      <div><strong>${spans.length}</strong> spans &middot; total ${fmtMs(totalMs)} &middot; ${fmtCost(totalCost)}${unpricedCount > 0 ? ` <span class="unpriced-badge">+ ${unpricedCount} unpriced</span>` : ""}</div>
+      <div style="color:var(--text-dim); font-size:12px">Click a row for full attributes</div>
     </div>
-    <div class="waterfall">${rows}</div>
+    <div class="waterfall" id="waterfall">${rows}</div>
   `;
+
+  $("#waterfall").addEventListener("click", (e) => {
+    const row = e.target.closest(".wf-row");
+    if (!row) return;
+    const attrs = $(`.wf-attrs[data-attrs-index="${row.dataset.rowIndex}"]`);
+    if (attrs) attrs.classList.toggle("open");
+  });
 }
 
 async function loadCostSummary() {
   const groupBy = $("#group-by").value;
-  const params = new URLSearchParams({ group_by: groupBy });
-  const dates = dateFilterParams();
-  if (dates.start_after) params.set("start_after", dates.start_after);
-  if (dates.start_before) params.set("start_before", dates.start_before);
+  const params = activeFilterParams();
+  params.set("group_by", groupBy);
+  params.delete("name");
+  params.delete("model");
   const res = await fetch("/api/cost_summary?" + params.toString());
   const rows = await res.json();
   const el = $("#cost-summary");
@@ -397,7 +470,7 @@ async function loadCostSummary() {
             <td>
               <div class="bar-cell">
                 <div class="bar-track"><div class="bar-fill" style="width:${(r.cost_usd / maxCost) * 100}%"></div></div>
-                <div>${fmtCost(r.cost_usd)}</div>
+                <div>${fmtCost(r.cost_usd)}${r.unknown_cost_count > 0 ? ` <span class="unpriced-badge">+${r.unknown_cost_count} unpriced</span>` : ""}</div>
               </div>
             </td>
           </tr>`
@@ -408,14 +481,15 @@ async function loadCostSummary() {
   `;
 }
 
-$("#f-refresh").onclick = () => { loadTraces(); loadCostSummary(); };
-$("#f-name").addEventListener("keydown", (e) => { if (e.key === "Enter") loadTraces(); });
-$("#f-model").addEventListener("keydown", (e) => { if (e.key === "Enter") loadTraces(); });
+function refreshAll() { loadStats(); loadTraces(); loadCostSummary(); }
+
+$("#f-refresh").onclick = refreshAll;
+$("#f-name").addEventListener("keydown", (e) => { if (e.key === "Enter") refreshAll(); });
+$("#f-model").addEventListener("keydown", (e) => { if (e.key === "Enter") refreshAll(); });
 $("#group-by").addEventListener("change", loadCostSummary);
 
-loadTraces();
-loadCostSummary();
-setInterval(() => { loadTraces(); loadCostSummary(); }, 5000);
+refreshAll();
+setInterval(refreshAll, 5000);
 </script>
 </body>
 </html>

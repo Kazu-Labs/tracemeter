@@ -105,3 +105,51 @@ def test_compare_endpoint_missing_trace(tmp_path):
     c = TestClient(app)
     res = c.get("/api/compare?trace_a=doesnotexist&trace_b=alsomissing")
     assert res.status_code == 404
+
+
+def test_stats_endpoint(client):
+    c, _ = client
+    res = c.get("/api/stats")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["trace_count"] == 1
+    assert data["span_count"] == 2
+    assert data["total_cost_usd"] > 0
+    assert data["unknown_cost_span_count"] == 0
+    assert data["error_trace_count"] == 0
+    assert data["avg_trace_latency_ms"] is not None
+
+
+def test_stats_and_list_traces_flag_unknown_cost(tmp_path):
+    store = SqliteStore(tmp_path / "test.db")
+    tracer = Tracer(store=store)
+    with tracer.span("pipeline") as root:
+        with tracer.span("call_model") as child:
+            child.set_attribute("gen_ai.request.model", "some-unpriced-model")
+            child.set_attribute("tracemeter.cost.unknown", True)
+
+    app = create_app(store=store)
+    c = TestClient(app)
+
+    stats = c.get("/api/stats").json()
+    assert stats["unknown_cost_span_count"] == 1
+    assert stats["total_cost_usd"] == 0.0
+
+    traces = c.get("/api/traces").json()
+    assert traces[0]["trace_id"] == root.trace_id
+    assert traces[0]["has_unknown_cost"] is True
+
+
+def test_cost_summary_flags_unknown_cost_bucket(tmp_path):
+    store = SqliteStore(tmp_path / "test.db")
+    tracer = Tracer(store=store)
+    with tracer.span("call_model") as s:
+        s.set_attribute("gen_ai.request.model", "some-unpriced-model")
+        s.set_attribute("tracemeter.cost.unknown", True)
+
+    app = create_app(store=store)
+    c = TestClient(app)
+    res = c.get("/api/cost_summary?group_by=model")
+    data = res.json()
+    assert data[0]["key"] == "some-unpriced-model"
+    assert data[0]["unknown_cost_count"] == 1

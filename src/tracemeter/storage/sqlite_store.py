@@ -171,6 +171,15 @@ class SqliteStore:
                 s["attributes"].get("tracemeter.cost.usd") or 0.0 for s in spans
             )
             d["total_cost_usd"] = cost
+            # A trace can mix priced and unpriced spans (e.g. one call to a
+            # model that isn't in prices.json); without this flag,
+            # total_cost_usd reads as "the whole cost" when it's actually
+            # only the known portion -- the fail-open pricing engine's
+            # "unknown, never silently wrong" guarantee needs the UI to
+            # surface this, not just the backend.
+            d["has_unknown_cost"] = any(
+                s["attributes"].get("tracemeter.cost.unknown") for s in spans
+            )
             d["name"] = d.pop("root_name") or "(unnamed trace)"
             traces.append(d)
         return traces
@@ -209,11 +218,19 @@ class SqliteStore:
                 continue
             b = buckets.setdefault(
                 key,
-                {"key": key, "cost_usd": 0.0, "call_count": 0, "total_latency_ms": 0.0},
+                {
+                    "key": key,
+                    "cost_usd": 0.0,
+                    "call_count": 0,
+                    "total_latency_ms": 0.0,
+                    "unknown_cost_count": 0,
+                },
             )
             b["cost_usd"] += attrs.get("tracemeter.cost.usd") or 0.0
             b["call_count"] += 1
             b["total_latency_ms"] += attrs.get("tracemeter.latency_ms") or 0.0
+            if attrs.get("tracemeter.cost.unknown"):
+                b["unknown_cost_count"] += 1
 
         result = list(buckets.values())
         for b in result:
@@ -222,6 +239,71 @@ class SqliteStore:
             )
         result.sort(key=lambda b: b["cost_usd"], reverse=True)
         return result
+
+    def stats(
+        self,
+        name_contains: Optional[str] = None,
+        model: Optional[str] = None,
+        start_after: Optional[float] = None,
+        start_before: Optional[float] = None,
+    ) -> dict[str, Any]:
+        """Totals for the dashboard's stat-tile header, over every matching
+        span rather than just one page of list_traces -- trace count, known
+        cost, how many spans priced as "unknown" (so the cost figure can be
+        shown as a floor rather than a complete total), error count, and
+        average root-span latency."""
+        query = "SELECT * FROM spans WHERE 1=1"
+        params: list[Any] = []
+        if name_contains:
+            query += " AND trace_id IN (SELECT trace_id FROM spans WHERE name LIKE ?)"
+            params.append(f"%{name_contains}%")
+        if model:
+            query += (
+                " AND trace_id IN ("
+                "  SELECT trace_id FROM spans"
+                "  WHERE json_extract(attributes, '$.\"gen_ai.request.model\"') = ?"
+                ")"
+            )
+            params.append(model)
+        if start_after is not None:
+            query += " AND start_time >= ?"
+            params.append(start_after)
+        if start_before is not None:
+            query += " AND start_time <= ?"
+            params.append(start_before)
+
+        with self._lock:
+            rows = self._conn.execute(query, params).fetchall()
+        spans = [self._row_to_dict(r) for r in rows]
+
+        trace_ids: set[str] = set()
+        error_trace_ids: set[str] = set()
+        total_cost = 0.0
+        unknown_cost_span_count = 0
+        root_latencies: list[float] = []
+        for s in spans:
+            trace_ids.add(s["trace_id"])
+            attrs = s["attributes"]
+            if s["status"] == "error":
+                error_trace_ids.add(s["trace_id"])
+            cost = attrs.get("tracemeter.cost.usd")
+            if cost is not None:
+                total_cost += cost
+            elif attrs.get("tracemeter.cost.unknown"):
+                unknown_cost_span_count += 1
+            if s["parent_span_id"] is None and s["end_time"] is not None:
+                root_latencies.append((s["end_time"] - s["start_time"]) * 1000.0)
+
+        return {
+            "trace_count": len(trace_ids),
+            "span_count": len(spans),
+            "total_cost_usd": round(total_cost, 8),
+            "unknown_cost_span_count": unknown_cost_span_count,
+            "error_trace_count": len(error_trace_ids),
+            "avg_trace_latency_ms": (
+                sum(root_latencies) / len(root_latencies) if root_latencies else None
+            ),
+        }
 
     def export_spans(
         self,
