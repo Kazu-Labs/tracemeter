@@ -48,6 +48,7 @@ Early / pre-alpha, but functional end-to-end. Working today:
 - Core SDK: `@trace` / `tracemeter.span()`, nested spans, SQLite storage
 - Auto-instrumentation for `openai`, `anthropic`, `litellm` client instances (sync + streaming)
 - LangChain callback handler (`TraceMeterCallbackHandler`), works across any LangChain chat model integration (OpenAI, Anthropic, Bedrock, Vertex AI, etc.)
+- LlamaIndex callback handler (Python 3.10+), same idea via LlamaIndex's `CallbackManager`
 - Pricing engine with a versioned, PR-friendly table; unknown models fail open
 - Local dashboard (`tracemeter serve`): waterfall view, cost breakdown by model, run comparison, filtering, CSV/JSON export
 - OTLP/HTTP ingest (`POST /v1/traces`, both protobuf and JSON) so any OTel-instrumented app can use TraceMeter as a backend without its own SDK
@@ -61,7 +62,7 @@ Published on PyPI; not yet used in production anywhere — see [Issues](https://
 pip install "tracemeter[all]"
 ```
 
-Extras: `[openai]`, `[anthropic]`, `[langchain]`, `[server]` (dashboard), `[otlp]` (OTLP ingest), `[all]` (everything). For local development: `git clone` + `pip install -e ".[all]"`.
+Extras: `[openai]`, `[anthropic]`, `[langchain]`, `[llamaindex]` (Python 3.10+), `[server]` (dashboard), `[otlp]` (OTLP ingest), `[all]` (everything). For local development: `git clone` + `pip install -e ".[all]"`.
 
 ## Quickstart
 
@@ -101,6 +102,23 @@ tracemeter serve
 ```
 
 Requires `pip install "tracemeter[langchain]"`. Works with any provider LangChain supports (OpenAI, Anthropic, Bedrock, Vertex AI, etc.) — the underlying provider is inferred from the model integration and reported as `gen_ai.system`, falling back to `"langchain"` for integrations not yet recognized.
+
+## LlamaIndex
+
+Same idea, through LlamaIndex's own `CallbackManager`:
+
+```python
+from llama_index.core import Settings
+from tracemeter.integrations.llamaindex_wrap import TraceMeterCallbackHandler
+
+Settings.callback_manager.add_handler(TraceMeterCallbackHandler())
+```
+
+```
+tracemeter serve
+```
+
+Requires `pip install "tracemeter[llamaindex]"` (Python 3.10+, matching `llama-index-core`'s own floor). Covers LLM and embedding calls across LlamaIndex's provider integrations; the underlying provider is inferred from the LLM class and reported as `gen_ai.system`, falling back to `"llamaindex"` for integrations not yet recognized.
 
 ## Using TraceMeter without its own SDK
 

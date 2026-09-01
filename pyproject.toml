@@ -13,7 +13,7 @@ authors = [{ name = "Kazu Labs" }]
 keywords = [
     "llm", "observability", "opentelemetry", "otel", "cost", "cost-tracking",
     "tracing", "genai", "gen-ai", "llmops", "llm-observability", "dashboard",
-    "openai", "anthropic", "litellm", "langchain", "otlp", "ai-agents",
+    "openai", "anthropic", "litellm", "langchain", "llamaindex", "otlp", "ai-agents",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -37,6 +37,11 @@ dependencies = []
 openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.25.0"]
 langchain = ["langchain-core>=0.2.0"]
+# llama-index-core effectively requires Python 3.10+ as of its newer
+# releases (a transitive dependency uses PEP 604 syntax); the marker makes
+# this extra a no-op on 3.9 instead of a hard install failure, same
+# handling as the `mcp` extra below.
+llamaindex = ["llama-index-core>=0.11.0; python_version>='3.10'"]
 server = ["fastapi>=0.110.0", "uvicorn>=0.27.0"]
 otlp = ["opentelemetry-proto>=1.20.0"]
 # mcp>=2.0.0's MCPServer API (the one tracemeter.mcp_server is written
@@ -48,6 +53,7 @@ all = [
     "openai>=1.0.0",
     "anthropic>=0.25.0",
     "langchain-core>=0.2.0",
+    "llama-index-core>=0.11.0; python_version>='3.10'",
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
     "opentelemetry-proto>=1.20.0",
@@ -59,6 +65,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "httpx>=0.27.0",
     "langchain-core>=0.2.0",
+    "llama-index-core>=0.11.0; python_version>='3.10'",
     "opentelemetry-proto>=1.20.0",
     "mcp>=2.0.0; python_version>='3.10'",
 ]

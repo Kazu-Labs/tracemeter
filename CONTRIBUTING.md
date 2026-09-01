@@ -19,7 +19,7 @@ pip install -e ".[dev,server,otlp]"
 pytest
 ```
 
-- New integrations (a framework, a provider client) belong in `src/tracemeter/integrations/`, following the shape of the existing ones -- see `openai_wrap.py` for the "monkeypatch a client's create method" pattern or `langchain_wrap.py` for the "hook a framework's own callback/event system" pattern, whichever fits.
+- New integrations (a framework, a provider client) belong in `src/tracemeter/integrations/`, following the shape of the existing ones -- see `openai_wrap.py` for the "monkeypatch a client's create method" pattern or `langchain_wrap.py`/`llamaindex_wrap.py` for the "hook a framework's own callback/event system" pattern, whichever fits.
 - Every span TraceMeter emits should use standard `gen_ai.*` attribute names (`src/tracemeter/semconv.py`) where one exists; TraceMeter-specific extensions are namespaced under `tracemeter.*` so they never collide with future upstream additions.
 - `PRD.md` has the current scope, explicit non-goals, and open decisions -- check it before proposing something that might already be a deliberate v1 boundary.
 
