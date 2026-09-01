@@ -7,6 +7,17 @@ Local-first, zero-infra cost & latency dashboard for LLM pipelines — built on 
 
 OTel standardized the *schema* for LLM telemetry (`gen_ai.*` attributes). It deliberately ships no collector, no cost layer, and no UI for a solo developer to just run. TraceMeter is that missing piece: a single `pip install` gets you OTel-GenAI-compliant tracing, a local SQLite store, automatic cost calculation, and a dashboard — no collector, no exporter config, no account signup.
 
+**See it with zero setup, no API keys:**
+
+```
+pip install "tracemeter[server]"
+tracemeter demo
+```
+
+Seeds ~2 weeks of realistic synthetic pipeline runs (multiple models and providers, a run comparison, an error, a streaming call) and opens the dashboard on it. Point it at your own traces once you like what you see: `tracemeter serve` reads `~/.tracemeter/traces.db` instead.
+
+**Instrument your own pipeline:**
+
 ```python
 from openai import OpenAI
 import tracemeter
