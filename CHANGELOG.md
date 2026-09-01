@@ -14,6 +14,7 @@ Notable changes to TraceMeter. Format loosely follows [Keep a Changelog](https:/
 
 ### Fixed
 - `instrument_openai`/`instrument_anthropic` against `AsyncOpenAI`/`AsyncAnthropic` streaming: the async wrapper returned a sync-only iterator (`__iter__`/`__next__`), so `async for chunk in stream:` against a real async streaming response raised `TypeError` instead of working. Non-streaming async calls were unaffected. Added `_AsyncStreamSpanWrapper` alongside the existing sync one.
+- Pricing table re-verified against live OpenAI/Anthropic pricing pages: added `gpt-5` and `o3-pro`, both missing despite sibling tiers (`gpt-5-mini`/`gpt-5-nano`, `o3`/`o3-mini`) already being listed. Anthropic's table checked out unchanged. Noted in `prices.json` that `gpt-5.6-sol`'s current rate is a promotional cut confirmed to hold only through November 21, 2026, and that OpenAI's >272K-input-token pricing tier for that model isn't representable in this table's flat per-model schema.
 
 ## [0.2.0] and earlier
 

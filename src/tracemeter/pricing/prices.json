@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-25",
-  "note": "Prices are USD per 1,000,000 tokens. Community-maintained -- PRs welcome. Verify against the provider's live pricing page before relying on this for billing-critical decisions; TraceMeter shows cost as 'unknown' rather than silently guessing for any model not listed here. Verified against developers.openai.com/api/docs/pricing and platform.claude.com/docs/en/about-claude/pricing on 2026-08-25. Anthropic dot-release model IDs (e.g. claude-opus-4-6) are inferred from Anthropic's established ID pattern, not confirmed against an API reference -- correct via PR if wrong. Anthropic base input pricing only; prompt-caching, batch, fast-mode, and data-residency multipliers are not modeled.",
+  "as_of": "2026-08-31",
+  "note": "Prices are USD per 1,000,000 tokens. Community-maintained -- PRs welcome. Verify against the provider's live pricing page before relying on this for billing-critical decisions; TraceMeter shows cost as 'unknown' rather than silently guessing for any model not listed here. Verified against developers.openai.com/api/docs/pricing and platform.claude.com/docs/en/about-claude/pricing on 2026-08-31. Anthropic dot-release model IDs (e.g. claude-opus-4-6) are inferred from Anthropic's established ID pattern, not confirmed against an API reference -- correct via PR if wrong. Anthropic base input pricing only; prompt-caching, batch, fast-mode, and data-residency multipliers are not modeled. gpt-5.6-sol's rate here is a promotional cut confirmed to hold at least through November 21, 2026, and OpenAI also bills prompts over 272K input tokens at a higher tier (2x input, 1.5x output for the whole request) that this flat per-model schema can't represent -- a long-context-heavy user's real bill will run higher than TraceMeter reports for that model. Re-check both after November 21, 2026.",
   "models": {
     "openai": {
       "gpt-4o": { "input": 2.50, "output": 10.00 },
@@ -12,6 +12,8 @@
       "o1": { "input": 15.00, "output": 60.00 },
       "o3": { "input": 2.00, "output": 8.00 },
       "o3-mini": { "input": 1.10, "output": 4.40 },
+      "o3-pro": { "input": 20.00, "output": 80.00 },
+      "gpt-5": { "input": 1.25, "output": 10.00 },
       "gpt-5-mini": { "input": 0.25, "output": 2.00 },
       "gpt-5-nano": { "input": 0.05, "output": 0.40 },
       "gpt-5.4-mini": { "input": 0.75, "output": 4.50 },
