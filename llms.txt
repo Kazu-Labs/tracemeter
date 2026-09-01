@@ -67,4 +67,4 @@ Opens a dashboard at `http://127.0.0.1:8765`. Traces persist to `~/.tracemeter/t
 
 ## Status
 
-Early (v0.1.x), functional end-to-end, tested and CI-green. Not yet used in production anywhere. License: Apache 2.0.
+Early (pre-1.0), functional end-to-end, tested and CI-green. Not yet used in production anywhere. See [CHANGELOG.md](https://github.com/Kazu-Labs/tracemeter/blob/main/CHANGELOG.md) for what's shipped. License: Apache 2.0.

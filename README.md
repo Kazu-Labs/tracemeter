@@ -46,7 +46,7 @@ Opens a local dashboard at `http://127.0.0.1:8765` showing cost and latency brok
 Early / pre-alpha, but functional end-to-end. Working today:
 
 - Core SDK: `@trace` / `tracemeter.span()`, nested spans, SQLite storage
-- Auto-instrumentation for `openai`, `anthropic`, `litellm` client instances (sync + streaming)
+- Auto-instrumentation for `openai`, `anthropic`, `litellm` client instances (sync + async, streaming included)
 - LangChain callback handler (`TraceMeterCallbackHandler`), works across any LangChain chat model integration (OpenAI, Anthropic, Bedrock, Vertex AI, etc.)
 - LlamaIndex callback handler (Python 3.10+), same idea via LlamaIndex's `CallbackManager`
 - Pricing engine with a versioned, PR-friendly table; unknown models fail open
@@ -54,7 +54,7 @@ Early / pre-alpha, but functional end-to-end. Working today:
 - OTLP/HTTP ingest (`POST /v1/traces`, both protobuf and JSON) so any OTel-instrumented app can use TraceMeter as a backend without its own SDK
 - MCP server (`tracemeter mcp`, Python 3.10+) exposing trace/cost data as tools for MCP-aware agents like Claude Code
 
-Published on PyPI; not yet used in production anywhere — see [Issues](https://github.com/Kazu-Labs/tracemeter/issues) and `PRD.md` for the roadmap.
+Published on PyPI; not yet used in production anywhere — see [Issues](https://github.com/Kazu-Labs/tracemeter/issues) and `PRD.md` for the roadmap, or [CHANGELOG.md](CHANGELOG.md) for what's shipped since the last release.
 
 ## Install
 
