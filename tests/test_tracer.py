@@ -61,3 +61,28 @@ def test_trace_decorator(tmp_path):
     traces = store.list_traces()
     assert len(traces) == 1
     assert traces[0]["name"] == "my_step"
+
+
+async def test_span_supports_async_with(tmp_path):
+    tracer, store = make_tracer(tmp_path)
+
+    async with tracer.span("root") as s:
+        s.set_attribute("gen_ai.request.model", "gpt-4o")
+
+    row = store.get_span(s.span_id)
+    assert row is not None
+    assert row["status"] == "ok"
+
+
+async def test_span_async_with_records_exception(tmp_path):
+    tracer, store = make_tracer(tmp_path)
+
+    try:
+        async with tracer.span("failing") as s:
+            raise ValueError("boom")
+    except ValueError:
+        pass
+
+    row = store.get_span(s.span_id)
+    assert row["status"] == "error"
+    assert "boom" in row["error_message"]

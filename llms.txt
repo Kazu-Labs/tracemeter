@@ -46,9 +46,9 @@ Opens a dashboard at `http://127.0.0.1:8765`. Traces persist to `~/.tracemeter/t
 
 ## API surface
 
-- `tracemeter.span(name)` — context manager for a traced step; nests automatically inside another `span()`
+- `tracemeter.span(name)` — context manager for a traced step; nests automatically inside another `span()`. Also supports `async with` for async pipelines.
 - `tracemeter.trace(name)` — decorator form of the above
-- `tracemeter.instrument_openai(client)`, `tracemeter.instrument_anthropic(client)`, `tracemeter.instrument_litellm(litellm_module)` — auto-instrument a client instance in place; returns the same client
+- `tracemeter.instrument_openai(client)`, `tracemeter.instrument_anthropic(client)`, `tracemeter.instrument_litellm(litellm_module)` — auto-instrument a client instance in place; returns the same client. Works against `AsyncOpenAI`/`AsyncAnthropic` too, including streaming.
 - `tracemeter.integrations.langchain_wrap.TraceMeterCallbackHandler()` — LangChain callback handler; pass it via `callbacks=[...]` to any LangChain chat model (works across providers, not just OpenAI/Anthropic)
 - `tracemeter.integrations.llamaindex_wrap.TraceMeterCallbackHandler()` — LlamaIndex callback handler (Python 3.10+); register via `Settings.callback_manager.add_handler(...)` or a `CallbackManager([...])` passed to a query engine/LLM
 - `tracemeter.compute_cost(model, input_tokens=, output_tokens=, system=)` — cost lookup against the pricing table; returns `None` (not a guess) for unlisted models

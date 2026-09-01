@@ -85,6 +85,22 @@ tracemeter serve
 
 Traces land in `~/.tracemeter/traces.db` (override with `TRACEMETER_DB_PATH`); the dashboard reads from there. No collector, no exporter config, no account.
 
+`instrument_openai`/`instrument_anthropic` work the same way against `AsyncOpenAI`/`AsyncAnthropic` -- including streaming, where token usage and time-to-first-token are captured as the async iterator is consumed:
+
+```python
+from openai import AsyncOpenAI
+import tracemeter
+
+client = tracemeter.instrument_openai(AsyncOpenAI())
+
+async with tracemeter.span("summarize_doc"):
+    stream = await client.chat.completions.create(
+        model="gpt-4o-mini", messages=[...], stream=True, stream_options={"include_usage": True}
+    )
+    async for chunk in stream:
+        ...
+```
+
 ## LangChain
 
 Instead of wrapping a client instance, LangChain integrations go through its callback handler API, which works across any LangChain-supported chat model:

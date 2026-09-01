@@ -17,19 +17,44 @@ from tracemeter.pricing.engine import compute_cost
 from tracemeter.tracer import Tracer, get_default_tracer
 
 
-class _StreamSpanWrapper:
-    """Wraps a streaming response iterator so the span stays open across
-    iteration and closes (with usage/cost attrs, if available) once the
-    stream is exhausted or errors."""
+class _StreamState:
+    """Shared bookkeeping between the sync and async stream wrappers below --
+    first-chunk TTFT capture and the "close exactly once" span teardown are
+    identical either way; only how chunks are pulled off the iterator
+    differs between `__next__` and `__anext__`."""
 
-    def __init__(self, iterator: Any, span_ctx: Any, span: Any, on_chunk: Callable, on_done: Callable):
-        self._iterator = iterator
+    def __init__(self, span_ctx: Any, span: Any, on_chunk: Callable, on_done: Callable):
         self._span_ctx = span_ctx
         self._span = span
         self._on_chunk = on_chunk
         self._on_done = on_done
         self._first_chunk_seen = False
         self._closed = False
+
+    def handle_chunk(self, chunk: Any) -> None:
+        if not self._first_chunk_seen:
+            self._first_chunk_seen = True
+            self._span.set_attribute(
+                semconv.TRACEMETER_TTFT_MS, (time.time() - self._span.start_time) * 1000.0
+            )
+        self._on_chunk(chunk)
+
+    def close(self, exc: Optional[BaseException] = None) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._on_done()
+        self._span_ctx.__exit__(type(exc) if exc else None, exc, None)
+
+
+class _StreamSpanWrapper:
+    """Wraps a sync streaming response iterator so the span stays open
+    across iteration and closes (with usage/cost attrs, if available) once
+    the stream is exhausted or errors."""
+
+    def __init__(self, iterator: Any, span_ctx: Any, span: Any, on_chunk: Callable, on_done: Callable):
+        self._iterator = iterator
+        self._state = _StreamState(span_ctx, span, on_chunk, on_done)
 
     def __iter__(self):
         return self
@@ -38,25 +63,39 @@ class _StreamSpanWrapper:
         try:
             chunk = next(self._iterator)
         except StopIteration:
-            self._close()
+            self._state.close()
             raise
         except BaseException as exc:
-            self._close(exc)
+            self._state.close(exc)
             raise
-        if not self._first_chunk_seen:
-            self._first_chunk_seen = True
-            self._span.set_attribute(
-                semconv.TRACEMETER_TTFT_MS, (time.time() - self._span.start_time) * 1000.0
-            )
-        self._on_chunk(chunk)
+        self._state.handle_chunk(chunk)
         return chunk
 
-    def _close(self, exc: Optional[BaseException] = None):
-        if self._closed:
-            return
-        self._closed = True
-        self._on_done()
-        self._span_ctx.__exit__(type(exc) if exc else None, exc, None)
+
+class _AsyncStreamSpanWrapper:
+    """Same as `_StreamSpanWrapper`, but over `__anext__`/`StopAsyncIteration`
+    for AsyncOpenAI/AsyncAnthropic-style streaming responses, which are
+    async iterators rather than sync ones -- the sync wrapper's `next()`
+    call would raise `TypeError` against them instead of iterating."""
+
+    def __init__(self, iterator: Any, span_ctx: Any, span: Any, on_chunk: Callable, on_done: Callable):
+        self._iterator = iterator
+        self._state = _StreamState(span_ctx, span, on_chunk, on_done)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            chunk = await self._iterator.__anext__()
+        except StopAsyncIteration:
+            self._state.close()
+            raise
+        except BaseException as exc:
+            self._state.close(exc)
+            raise
+        self._state.handle_chunk(chunk)
+        return chunk
 
 
 def instrument_create_method(
@@ -120,7 +159,7 @@ def instrument_create_method(
         _set_cost(span, system, response_model or model, in_tok, out_tok, reason_tok)
         span_ctx.__exit__(None, None, None)
 
-    def _make_stream_wrapper(span_ctx, span, model, iterator):
+    def _make_stream_wrapper(span_ctx, span, model, iterator, wrapper_cls=_StreamSpanWrapper):
         usage_holder: dict[str, Any] = {}
 
         def on_chunk(chunk):
@@ -142,7 +181,7 @@ def instrument_create_method(
                 span.set_attribute(semconv.GEN_AI_USAGE_REASONING_TOKENS, reason_tok)
             _set_cost(span, system, model, in_tok, out_tok, reason_tok)
 
-        return _StreamSpanWrapper(iterator, span_ctx, span, on_chunk, on_done)
+        return wrapper_cls(iterator, span_ctx, span, on_chunk, on_done)
 
     if inspect.iscoroutinefunction(original):
 
@@ -154,7 +193,7 @@ def instrument_create_method(
                 span_ctx.__exit__(type(exc), exc, None)
                 raise
             if is_streaming(kwargs):
-                return _make_stream_wrapper(span_ctx, span, model, response)
+                return _make_stream_wrapper(span_ctx, span, model, response, wrapper_cls=_AsyncStreamSpanWrapper)
             _finish_non_streaming(span_ctx, span, model, response)
             return response
 

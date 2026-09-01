@@ -105,6 +105,16 @@ class _SpanContext:
 
         return False  # never suppress exceptions
 
+    # `async with tracemeter.span(...)` for async pipelines -- opening and
+    # closing a span is pure in-memory bookkeeping plus a local SQLite
+    # write, no actual `await`s needed, so these just delegate to the sync
+    # versions rather than duplicating them.
+    async def __aenter__(self) -> Span:
+        return self.__enter__()
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        return self.__exit__(exc_type, exc, tb)
+
 
 class Tracer:
     """Entry point for creating spans. Backed by a local SQLite store."""
