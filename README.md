@@ -147,7 +147,7 @@ Or run it directly for testing: `tracemeter mcp` (talks stdio JSON-RPC; not mean
 
 ## Contributing
 
-Pricing table updates are the easiest and most valuable contribution — see `src/tracemeter/pricing/prices.json`. It's a plain JSON file: add a model, open a PR.
+Pricing table updates are the easiest and most valuable contribution — see `src/tracemeter/pricing/prices.json`. It's a plain JSON file: add a model, open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for details and the dev setup.
 
 ```
 pip install -e ".[dev,server,otlp]"

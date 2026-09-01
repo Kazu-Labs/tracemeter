@@ -1,0 +1,20 @@
+name: Feature request
+description: A framework integration, dashboard capability, or other addition you'd like to see.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The workflow or gap this would fill, not just the feature itself.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: If you have one in mind. Feel free to leave blank.
+  - type: markdown
+    attributes:
+      value: |
+        See `PRD.md` for the current roadmap and explicit non-goals -- if this overlaps with something already scoped out (hosted/cloud version, non-Python SDKs, alerting), say why your case is different.

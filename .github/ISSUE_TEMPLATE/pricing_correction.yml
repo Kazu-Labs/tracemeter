@@ -1,0 +1,40 @@
+name: Pricing correction / new model
+description: A price in prices.json is wrong, stale, or a model is missing entirely.
+labels: ["pricing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The pricing table is community-maintained -- thanks for helping keep it accurate. If you already know the fix, a PR against `src/tracemeter/pricing/prices.json` is even faster than filing this.
+  - type: input
+    id: provider
+    attributes:
+      label: Provider
+      description: e.g. openai, anthropic
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model ID
+      description: The exact string the provider's API expects, e.g. gpt-4o-mini
+    validations:
+      required: true
+  - type: input
+    id: correct-price
+    attributes:
+      label: Correct price (USD per 1,000,000 tokens)
+      description: Input and output rates, e.g. "input 0.15, output 0.60"
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Link to the provider's official pricing page
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Prompt-caching or batch pricing, regional variation, etc. -- TraceMeter currently only models base input/output rates.

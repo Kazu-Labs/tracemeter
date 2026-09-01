@@ -1,0 +1,31 @@
+name: Bug report
+description: Something doesn't work the way it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest snippet that triggers it -- which integration (openai/anthropic/litellm/langchain), and whether it involves `serve`, OTLP ingest, or the MCP server.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: tracemeter version
+      description: Output of `python -c "import tracemeter; print(tracemeter.__version__)"`
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version and OS
+    validations:
+      required: true
